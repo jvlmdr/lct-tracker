@@ -1,4 +1,4 @@
-function [positions, time] = tracker_lct(video_path, img_files, pos, target_sz, config, show_visualization)
+function [positions, time, predictions] = tracker_lct(video_path, img_files, pos, target_sz, config, show_visualization)
 %
 %   It is meant to be called by the interface function RUN_TRACKER, which
 %   sets up the parameters and loads the video information.
@@ -6,6 +6,7 @@ function [positions, time] = tracker_lct(video_path, img_files, pos, target_sz, 
 	%if the target is large, lower the resolution, we don't need that much
 	%detail
 
+	target_sz = round(target_sz);
 	resize_image = (sqrt(prod(target_sz)) >= 100);  %diagonal size >= threshold
     if resize_image,
         pos = floor(pos / 2);
@@ -13,6 +14,12 @@ function [positions, time] = tracker_lct(video_path, img_files, pos, target_sz, 
     end
 
     im_sz=size(imread([video_path img_files{1}]));
+    if min(im_sz(1:2)) > 480
+        positions = [];
+        time = nan;
+        predictions = {};
+        return
+    end
     [window_sz, app_sz]=search_window(target_sz,im_sz, config);
     config.window_sz=window_sz;
     config.app_sz=app_sz;
@@ -36,6 +43,8 @@ function [positions, time] = tracker_lct(video_path, img_files, pos, target_sz, 
 
 	time = 0;  %to calculate FPS
 	positions = zeros(numel(img_files), 2);  %to calculate precision
+	sizes = zeros(numel(img_files), 2);
+	scores = zeros(numel(img_files), 1);
     
     svm_struct=[];
     
@@ -178,13 +187,16 @@ function [positions, time] = tracker_lct(video_path, img_files, pos, target_sz, 
             end
         end
             
-		%save position and timing
-		positions(frame,:) = pos;
-		time = time + toc();
-
 		%visualization
         target_sz_s=target_sz*currentScaleFactor;
         
+		%save position and timing
+		positions(frame,:) = pos;
+        sizes(frame,:) = target_sz_s;
+        scores(frame) = 0;
+		time = time + toc();
+		fprintf('frame %d/%d: time %.2g\n', frame, numel(img_files), toc());
+
         if show_visualization,
             box = [pos([2,1]) - target_sz_s([2,1])/2, target_sz_s([2,1])];
             stop = update_visualization(frame, box);
@@ -198,5 +210,15 @@ function [positions, time] = tracker_lct(video_path, img_files, pos, target_sz, 
 	end
 
 	if resize_image, positions = positions * 2; end
-    
+
+    min_pt = bsxfun(@rdivide, positions - 0.5 * sizes, reshape(im_sz(1:2), [1, 2]));
+    max_pt = bsxfun(@rdivide, positions + 0.5 * sizes, reshape(im_sz(1:2), [1, 2]));
+    float2str = @(x) num2str(x, '%.6g');
+    predictions = arrayfun(...
+        @(i) {1, float2str(scores(i)), ...
+              float2str(min_pt(i, 2)), float2str(max_pt(i, 2)), ...
+              float2str(min_pt(i, 1)), float2str(max_pt(i, 1))}, ...
+        2:numel(img_files), 'UniformOutput', false);
+    predictions = vertcat(predictions{:});
+
 end
