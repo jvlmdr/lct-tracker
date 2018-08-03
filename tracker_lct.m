@@ -14,12 +14,6 @@ function [positions, time, predictions] = tracker_lct(video_path, img_files, pos
     end
 
     im_sz=size(imread([video_path img_files{1}]));
-    if min(im_sz(1:2)) > 480
-        positions = [];
-        time = nan;
-        predictions = {};
-        return
-    end
     [window_sz, app_sz]=search_window(target_sz,im_sz, config);
     config.window_sz=window_sz;
     config.app_sz=app_sz;
@@ -209,7 +203,10 @@ function [positions, time, predictions] = tracker_lct(video_path, img_files, pos
         
 	end
 
-	if resize_image, positions = positions * 2; end
+	if resize_image
+        positions = positions * 2;
+        sizes = sizes * 2;
+    end
 
     min_pt = bsxfun(@rdivide, positions - 0.5 * sizes, reshape(im_sz(1:2), [1, 2]));
     max_pt = bsxfun(@rdivide, positions + 0.5 * sizes, reshape(im_sz(1:2), [1, 2]));

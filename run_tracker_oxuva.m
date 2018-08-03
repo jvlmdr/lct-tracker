@@ -17,7 +17,7 @@ function [fps, predictions] = run_tracker_oxuva(subset, video, show_visualizatio
 
     %path to the videos (you'll be able to choose one with the GUI).
     % base_path = 'Benchmark/';
-    base_path = '/home/jvlmdr/projects/2017-06-long-term/long-term-tracking-benchmark/dataset';
+    base_path = 'oxuva-dataset';
     %default settings
     if nargin < 2, video = 'choose'; end
     if nargin < 3, show_visualization = ~strcmp(video, 'all'); end
